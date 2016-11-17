@@ -38,7 +38,7 @@
 #define POINT_CLOUD_ODOMETRY_H
 
 #include <ros/ros.h>
-#include <geometry_utils/Transform3.h>
+#include <geometry_utils/GeometryUtils.h>
 
 #include <pcl_ros/point_cloud.h>
 #include <tf2_ros/transform_broadcaster.h>

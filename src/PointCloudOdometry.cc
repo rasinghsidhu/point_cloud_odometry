@@ -77,18 +77,18 @@ bool PointCloudOdometry::Initialize(const ros::NodeHandle& n) {
 
 bool PointCloudOdometry::LoadParameters(const ros::NodeHandle& n) {
   // Load frame ids.
-  if (!pu::Get("frame_id/fixed", fixed_frame_id_)) return false;
-  if (!pu::Get("frame_id/odometry", odometry_frame_id_)) return false;
+  if (!pu::get("frame_id/fixed", fixed_frame_id_)) return false;
+  if (!pu::get("frame_id/odometry", odometry_frame_id_)) return false;
 
   // Load initial position.
   double init_x = 0.0, init_y = 0.0, init_z = 0.0;
   double init_roll = 0.0, init_pitch = 0.0, init_yaw = 0.0;
-  if (!pu::Get("init/position/x", init_x)) return false;
-  if (!pu::Get("init/position/y", init_y)) return false;
-  if (!pu::Get("init/position/z", init_z)) return false;
-  if (!pu::Get("init/orientation/roll", init_roll)) return false;
-  if (!pu::Get("init/orientation/pitch", init_pitch)) return false;
-  if (!pu::Get("init/orientation/yaw", init_yaw)) return false;
+  if (!pu::get("init/position/x", init_x)) return false;
+  if (!pu::get("init/position/y", init_y)) return false;
+  if (!pu::get("init/position/z", init_z)) return false;
+  if (!pu::get("init/orientation/roll", init_roll)) return false;
+  if (!pu::get("init/orientation/pitch", init_pitch)) return false;
+  if (!pu::get("init/orientation/yaw", init_yaw)) return false;
 
   gu::Transform3 init;
   init.translation = gu::Vec3(init_x, init_y, init_z);
@@ -96,13 +96,13 @@ bool PointCloudOdometry::LoadParameters(const ros::NodeHandle& n) {
   integrated_estimate_ = init;
 
   // Load algorithm parameters.
-  if (!pu::Get("icp/tf_epsilon", params_.icp_tf_epsilon)) return false;
-  if (!pu::Get("icp/corr_dist", params_.icp_corr_dist)) return false;
-  if (!pu::Get("icp/iterations", params_.icp_iterations)) return false;
+  if (!pu::get("icp/tf_epsilon", params_.icp_tf_epsilon)) return false;
+  if (!pu::get("icp/corr_dist", params_.icp_corr_dist)) return false;
+  if (!pu::get("icp/iterations", params_.icp_iterations)) return false;
 
-  if (!pu::Get("icp/transform_thresholding", transform_thresholding_)) return false;
-  if (!pu::Get("icp/max_translation", max_translation_)) return false;
-  if (!pu::Get("icp/max_rotation", max_rotation_)) return false;
+  if (!pu::get("icp/transform_thresholding", transform_thresholding_)) return false;
+  if (!pu::get("icp/max_translation", max_translation_)) return false;
+  if (!pu::get("icp/max_rotation", max_rotation_)) return false;
 
   return true;
 }
@@ -185,15 +185,15 @@ bool PointCloudOdometry::UpdateICP() {
 
   // Only update if the incremental transform is small enough.
   if (!transform_thresholding_ ||
-      (incremental_estimate_.translation.Norm() <= max_translation_ &&
-       incremental_estimate_.rotation.ToEulerZYX().Norm() <= max_rotation_)) {
+      (incremental_estimate_.translation.norm() <= max_translation_ &&
+       incremental_estimate_.rotation.toEulerZYX().norm() <= max_rotation_)) {
     integrated_estimate_ =
-        gu::PoseUpdate(integrated_estimate_, incremental_estimate_);
+        gu::pose_update(integrated_estimate_, incremental_estimate_);
   } else {
     ROS_WARN(
         "%s: Discarding incremental transformation with norm (t: %lf, r: %lf)",
-        name_.c_str(), incremental_estimate_.translation.Norm(),
-        incremental_estimate_.rotation.ToEulerZYX().Norm());
+        name_.c_str(), incremental_estimate_.translation.norm(),
+        incremental_estimate_.rotation.toEulerZYX().norm());
   }
 
   // Convert pose estimates to ROS format and publish.
@@ -206,7 +206,7 @@ bool PointCloudOdometry::UpdateICP() {
 
   // Convert transform between fixed frame and odometry frame.
   geometry_msgs::TransformStamped tf;
-  tf.transform = gr::ToRosTransform(integrated_estimate_);
+  tf.transform = gr::toTransform(integrated_estimate_);
   tf.header.stamp = stamp_;
   tf.header.frame_id = fixed_frame_id_;
   tf.child_frame_id = odometry_frame_id_;
@@ -234,7 +234,7 @@ void PointCloudOdometry::PublishPose(const gu::Transform3& pose,
 
   // Convert from gu::Transform3 to ROS's PoseStamped type and publish.
   geometry_msgs::PoseStamped ros_pose;
-  ros_pose.pose = gr::ToRosPose(pose);
+  ros_pose.pose = gr::toPose(pose);
   ros_pose.header.frame_id = fixed_frame_id_;
   ros_pose.header.stamp = stamp_;
   pub.publish(ros_pose);
