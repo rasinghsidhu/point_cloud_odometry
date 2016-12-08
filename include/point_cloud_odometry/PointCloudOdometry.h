@@ -42,6 +42,7 @@
 
 #include <pcl_ros/point_cloud.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <sensor_msgs/Imu.h>
 
 class PointCloudOdometry {
  public:
@@ -52,6 +53,9 @@ class PointCloudOdometry {
 
   // Calls LoadParameters and RegisterCallbacks. Fails on failure of either.
   bool Initialize(const ros::NodeHandle& n);
+
+  //Update incremental estimate with imu measurement.
+  bool UpdateEstimateFromIMU(const sensor_msgs::Imu::ConstPtr& imu);
 
   // Align incoming point cloud with previous point cloud, updating odometry.
   bool UpdateEstimate(const PointCloud& points);
@@ -82,6 +86,9 @@ class PointCloudOdometry {
 
   // The node's name.
   std::string name_;
+
+  geometry_utils::Rotation3 imu_orientation_;
+  ros::Time imu_stamp_;
 
   // Pose estimates.
   geometry_utils::Transform3 integrated_estimate_;

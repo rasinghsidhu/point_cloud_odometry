@@ -42,6 +42,7 @@
 #include <sensor_msgs/PointCloud2.h>
 
 #include <pcl/registration/gicp.h>
+#include <pcl/registration/transformation_estimation.h>
 
 namespace gu = geometry_utils;
 namespace gr = gu::ros;
@@ -51,6 +52,45 @@ using pcl::copyPointCloud;
 using pcl::GeneralizedIterativeClosestPoint;
 using pcl::PointCloud;
 using pcl::PointXYZ;
+
+
+template <typename PointSource, typename PointTarget, typename Scalar = float>
+class SimpleTransformationEstimation : public pcl::registration::TransformationEstimation<PointSource, PointTarget, Scalar>
+{
+public:
+
+  typedef boost::shared_ptr<SimpleTransformationEstimation<PointSource, PointTarget, Scalar> > Ptr;
+  typedef boost::shared_ptr<const SimpleTransformationEstimation<PointSource, PointTarget, Scalar> > ConstPtr;
+  typedef Eigen::Matrix<Scalar, 4, 4> Matrix4;
+  Eigen::Matrix<Scalar, 3, 3> mat;
+  SimpleTransformationEstimation(gu::Rot3 rotation){
+    mat = rotation.eigen().cast<Scalar>();
+  }
+  virtual void estimateRigidTransformation(const pcl::PointCloud<PointSource> &s,
+    const pcl::PointCloud<PointTarget> &t,
+    Matrix4 &transformation_matrix) const{
+    transformation_matrix.block(0,0,3,3) = mat;
+  }
+  virtual void estimateRigidTransformation(const pcl::PointCloud<PointSource> &s,
+    const std::vector<int> &indices_src,
+    const pcl::PointCloud<PointTarget> &t,
+    Matrix4 &transformation_matrix) const{
+    transformation_matrix.block(0,0,3,3) = mat;
+  }
+  virtual void estimateRigidTransformation(const pcl::PointCloud<PointSource> &s,
+    const std::vector<int> &indices_src,
+    const pcl::PointCloud<PointTarget> &t,
+    const std::vector<int> &indices_tgt,
+    Matrix4 &transformation_matrix) const{
+    transformation_matrix.block(0,0,3,3) = mat;
+  }
+  virtual void estimateRigidTransformation(const pcl::PointCloud<PointSource> &s,
+    const pcl::PointCloud<PointTarget> &t,
+    const pcl::Correspondences &correspondences,
+    Matrix4 &transformation_matrix) const{
+    transformation_matrix.block(0,0,3,3) = mat;
+  }
+};
 
 PointCloudOdometry::PointCloudOdometry() : initialized_(false) {
   query_.reset(new PointCloud);
@@ -122,6 +162,15 @@ bool PointCloudOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
   return true;
 }
 
+bool PointCloudOdometry::UpdateEstimateFromIMU(const sensor_msgs::Imu::ConstPtr& msg){
+  imu_orientation_ = gu::Rot3(gr::fromROS(msg->orientation));
+  imu_stamp_ = msg->header.stamp;
+  if(!initialized_){
+    integrated_estimate_.rotation = imu_orientation_;
+  }
+  return true;  
+}
+
 bool PointCloudOdometry::UpdateEstimate(const PointCloud& points) {
   // Store input point cloud's time stamp for publishing.
   stamp_.fromNSec(points.header.stamp*1e3);
@@ -171,6 +220,12 @@ bool PointCloudOdometry::UpdateICP() {
 
   icp.setInputSource(query_);
   icp.setInputTarget(reference_);
+
+  //If valid imu measurement in last second, provide orientation as estimate
+  if((stamp_ - imu_stamp_).toSec() < .25f){
+    SimpleTransformationEstimation<PointXYZ, PointXYZ, float>::Ptr te(new SimpleTransformationEstimation<PointXYZ, PointXYZ, float>(imu_orientation_));
+    icp.setTransformationEstimation(te);
+  }
 
   PointCloud unused_result;
   icp.align(unused_result);
